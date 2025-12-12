@@ -22,4 +22,4 @@ jobs:
             echo "::error::HF_TOKEN secret is not set. Please add it to your repository secrets."
             exit 1
           fi
-          git push --force https://KrArunT:$HF_TOKEN@huggingface.co/spaces/KrArunT/ai-sandbox main
+          git push --force https://ArunKr:$HF_TOKEN@huggingface.co/spaces/KrArunT/ai-sandbox main

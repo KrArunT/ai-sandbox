@@ -57,14 +57,16 @@ async def websocket_terminal(websocket: WebSocket):
     # Start the shell (bash)
     shell = os.environ.get("SHELL", "/bin/bash")
     
-    # Ensure TERM is set (Critical fix for PTY rendering)
-    os.environ["TERM"] = "xterm-256color"
-    
     pid = os.fork()
     
     if pid == 0:
         # Child process
         os.setsid()
+        
+        # Set environment variables for the shell
+        os.environ["TERM"] = "xterm-256color"
+        os.environ["SHELL"] = shell
+        
         os.dup2(slave_fd, 0)
         os.dup2(slave_fd, 1)
         os.dup2(slave_fd, 2)

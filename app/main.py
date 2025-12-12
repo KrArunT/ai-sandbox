@@ -9,21 +9,18 @@ import logging
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
+from dotenv import load_dotenv
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-from dotenv import load_dotenv
 
 load_dotenv()
 
 # Get Supabase Config
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
-
-# ... (logging config) ...
 
 app = FastAPI()
 
@@ -60,7 +57,7 @@ async def websocket_terminal(websocket: WebSocket):
     # Start the shell (bash)
     shell = os.environ.get("SHELL", "/bin/bash")
     
-    # Ensure TERM is set
+    # Ensure TERM is set (Critical fix for PTY rendering)
     os.environ["TERM"] = "xterm-256color"
     
     pid = os.fork()
@@ -80,62 +77,49 @@ async def websocket_terminal(websocket: WebSocket):
         # Parent process (WebSocket handler)
         os.close(slave_fd)
         
-        loop = asyncio.get_running_loop()
-        
-        loop = asyncio.get_running_loop()
-        
-        # Queue for data to send to WebSocket
-        output_queue = asyncio.Queue()
-        
-        def pty_reader():
-            try:
-                data = os.read(master_fd, 10240)
-                if data:
-                    output_queue.put_nowait(data)
-                else:
-                    # EOF
-                    output_queue.put_nowait(None)
-            except OSError:
-                output_queue.put_nowait(None)
-
-        loop.add_reader(master_fd, pty_reader)
-        
-        async def send_to_ws():
+        async def read_from_ws():
             try:
                 while True:
-                    data = await output_queue.get()
-                    if data is None:
-                        break
-                    await websocket.send_text(data.decode(errors='replace'))
+                    data = await websocket.receive_text()
+                    # Handle resize events
+                    if data.startswith('{"type":"resize"'):
+                        import json
+                        try:
+                            msg = json.loads(data)
+                            rows = msg.get('rows', 24)
+                            cols = msg.get('cols', 80)
+                            winsize = struct.pack("HHHH", rows, cols, 0, 0)
+                            fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsize)
+                        except Exception as e:
+                            logger.error(f"Error resizing: {e}")
+                    else:
+                        # Write to PTY
+                        os.write(master_fd, data.encode())
+            except WebSocketDisconnect:
+                logger.info("WebSocket disconnected")
             except Exception as e:
-                logger.error(f"WS Send Error: {e}") 
+                logger.error(f"WebSocket error: {e}")
 
-        send_task = asyncio.create_task(send_to_ws())
-
+        read_task = asyncio.create_task(read_from_ws())
+        
         try:
             while True:
-                data = await websocket.receive_text()
+                await asyncio.sleep(0.01)
+                # Check if data is available to read from master_fd
+                r, w, e = select.select([master_fd], [], [], 0)
+                if master_fd in r:
+                    output = os.read(master_fd, 10240)
+                    if not output:
+                        # EOF
+                        break
+                    await websocket.send_text(output.decode(errors='replace'))
                 
-                if data.startswith('{"type":"resize"'):
-                    import json
-                    try:
-                        msg = json.loads(data)
-                        rows = msg.get('rows', 24)
-                        cols = msg.get('cols', 80)
-                        winsize = struct.pack("HHHH", rows, cols, 0, 0)
-                        fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsize)
-                    except Exception as e:
-                        logger.error(f"Error resizing: {e}")
-                else:
-                    os.write(master_fd, data.encode())
-                    
-        except WebSocketDisconnect:
-            logger.info("WebSocket disconnected")
+                if read_task.done():
+                    break
         except Exception as e:
-            logger.error(f"WebSocket Loop Error: {e}")
+            logger.error(f"Error in terminal loop: {e}")
         finally:
-            loop.remove_reader(master_fd)
-            send_task.cancel()
+            read_task.cancel()
             os.close(master_fd)
             # Kill the child process if it's still alive
             try:

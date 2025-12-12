@@ -24,10 +24,19 @@ USER user
 
 # Install NVM, Node.js 24, and PNPM
 ENV NVM_DIR /home/user/.nvm
+ENV NODE_VERSION 24.12.0
+
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash \
     && . "$NVM_DIR/nvm.sh" \
-    && nvm install 24 \
-    && corepack enable pnpm
+    && nvm install ${NODE_VERSION} \
+    && nvm use ${NODE_VERSION} \
+    && nvm alias default ${NODE_VERSION} \
+    && corepack enable pnpm \
+    && echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc \
+    && echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> ~/.bashrc
+
+# Update PATH to include Node.js binaries
+ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
 # Expose port (HF Spaces defaults to 7860)
 EXPOSE 7860

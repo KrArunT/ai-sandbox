@@ -5,177 +5,27 @@
     <meta charset="UTF-8">
     <title>AI Sandbox Terminal</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;600&display=swap"
-        rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        // Inject config from server
-        window.SUPABASE_CONFIG = {{ supabase_config | tojson }};
-    </script>
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --term-bg: #1e293b;
-            --term-header: #334155;
-            --accent: #38bdf8;
-            --text-primary: #e2e8f0;
-            --text-secondary: #94a3b8;
-        }
-
         body {
             margin: 0;
             padding: 0;
-            background-color: var(--bg-color);
+            background-color: #000;
             height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Inter', sans-serif;
             overflow: hidden;
-            background-image:
-                radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 1) 0, transparent 50%),
-                radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 1) 0, transparent 50%),
-                radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 1) 0, transparent 50%);
         }
 
-        .terminal-container {
-            width: 90vw;
-            height: 85vh;
-            background: rgba(30, 41, 59, 0.7);
-            border-radius: 12px;
-            box-shadow:
-                0 20px 25px -5px rgba(0, 0, 0, 0.2),
-                0 8px 10px -6px rgba(0, 0, 0, 0.2),
-                0 0 0 1px rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            transition: box-shadow 0.3s ease;
-        }
-
-        .terminal-container:hover {
-            box-shadow:
-                0 25px 30px -5px rgba(0, 0, 0, 0.3),
-                0 0 0 1px rgba(56, 189, 248, 0.3);
-        }
-
-        .terminal-header {
-            background: rgba(15, 23, 42, 0.6);
-            padding: 12px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .window-controls {
-            display: flex;
-            gap: 8px;
-        }
-
-        .control {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-        }
-
-        .close {
-            background: #ef4444;
-        }
-
-        .minimize {
-            background: #f59e0b;
-        }
-
-        .maximize {
-            background: #22c55e;
-        }
-
-        .header-title {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #22c55e;
-            box-shadow: 0 0 8px #22c55e;
-        }
-
-        .status-dot.disconnected {
-            background: #ef4444;
-            box-shadow: none;
-        }
-
-        .logout-btn {
-            background: transparent;
-            color: var(--text-secondary);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 6px 14px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.2s;
-        }
-
-        .logout-btn:hover {
-            color: #ef4444;
-            border-color: rgba(239, 68, 68, 0.3);
-            background: rgba(239, 68, 68, 0.1);
-        }
-
-        #terminal-body {
-            flex: 1;
-            padding: 16px;
-            position: relative;
-        }
-
-        /* Custom scrollbar for xterm */
-        .xterm-viewport::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .xterm-viewport::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .xterm-viewport::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 4px;
-        }
-
-        .xterm-viewport::-webkit-scrollbar-thumb:hover {
-            background: #64748b;
+        #terminal {
+            width: 100%;
+            height: 100%;
         }
     </style>
 </head>
 
 <body>
-    <div class="terminal-container">
-        <div class="terminal-header">
-            <div class="window-controls">
-                <div class="control close"></div>
-                <div class="control minimize"></div>
-                <div class="control maximize"></div>
-            </div>
-            <div class="header-title">
-                <div id="status-dot" class="status-dot disconnected"></div>
-                sandbox@krarunt:~
-            </div>
-            <button id="logout-btn" class="logout-btn">Logout</button>
-        </div>
-        <div id="terminal-body"></div>
-    </div>
+    <div id="terminal"></div>
 
     <script>
         // Supabase Logic to protect the route
@@ -187,70 +37,33 @@
                     window.location.href = '/login';
                 }
             });
-
-            document.getElementById('logout-btn').addEventListener('click', async () => {
-                await supabase.auth.signOut();
-                window.location.href = '/login';
-            });
         }
 
         // Terminal Logic
         const term = new Terminal({
             theme: {
-                background: '#1e293b00', // Transparent for backdrop blur effect if valid, else fallback
-                // Actually xterm canvas doesn't easily support transparency over CSS backdrop-filter 
-                // perfectly without composition. Let's stick to a solid matching color or slight transp.
-                // We'll use the container background effectively.
-                background: '#1e293b',
+                background: '#0f172a',
                 foreground: '#e2e8f0',
-                cursor: '#38bdf8',
-                selectionBackground: 'rgba(56, 189, 248, 0.3)',
-                black: '#0f172a',
-                red: '#ef4444',
-                green: '#22c55e',
-                yellow: '#f59e0b',
-                blue: '#3b82f6',
-                magenta: '#d946ef',
-                cyan: '#06b6d4',
-                white: '#f8fafc',
-                brightBlack: '#475569',
-                brightRed: '#f87171',
-                brightGreen: '#4ade80',
-                brightYellow: '#fcd34d',
-                brightBlue: '#60a5fa',
-                brightMagenta: '#e879f9',
-                brightCyan: '#22d3ee',
-                brightWhite: '#ffffff'
+                cursor: '#38bdf8'
             },
-            fontFamily: '"Fira Code", Menlo, Monaco, "Courier New", monospace',
-            fontSize: 15,
-            lineHeight: 1.2,
-            cursorBlink: true,
-            cursorStyle: 'bar', // 'block', 'underline', 'bar'
-            allowTransparency: true
+            fontSize: 14,
+            fontFamily: 'Menlo, Monaco, "Courier New", monospace'
         });
-
         const fitAddon = new FitAddon.FitAddon();
-        const webLinksAddon = new XtermAddonWebLinks.WebLinksAddon();
-
         term.loadAddon(fitAddon);
-        term.loadAddon(webLinksAddon);
-
-        term.open(document.getElementById('terminal-body'));
+        term.open(document.getElementById('terminal'));
         fitAddon.fit();
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws/terminal`;
         const ws = new WebSocket(wsUrl);
-        const statusDot = document.getElementById('status-dot');
 
         ws.onopen = () => {
             console.log('Connected to terminal WebSocket');
-            statusDot.classList.remove('disconnected');
             term.write('\r\n\x1b[32mWelcome to AI Sandbox Terminal\x1b[0m\r\n\r\n');
+            // Send resize event immediately
             const dims = { cols: term.cols, rows: term.rows };
             ws.send(JSON.stringify({ type: 'resize', ...dims }));
-            term.focus();
         };
 
         ws.onmessage = (event) => {
@@ -260,12 +73,10 @@
         ws.onerror = (error) => {
             console.error('WebSocket Error:', error);
             term.write('\r\n\x1b[31mConnection Error\x1b[0m\r\n');
-            statusDot.classList.add('disconnected');
         };
 
         ws.onclose = () => {
             term.write('\r\n\x1b[1mConnection Closed\x1b[0m\r\n');
-            statusDot.classList.add('disconnected');
         };
 
         term.onData(data => {
@@ -274,16 +85,12 @@
             }
         });
 
-        // Handle resizing
         window.addEventListener('resize', () => {
             fitAddon.fit();
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
             }
         });
-
-        // Initial fit
-        setTimeout(() => fitAddon.fit(), 100);
     </script>
 </body>
 

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Login - AI Sandbox</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Inject config from server
+        window.SUPABASE_CONFIG = {{ supabase_config | tojson }};
+
+        // Supabase Logic to protect the route
+    </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            display: flex;
+            justify_content: center;
+            align_items: center;
+            height: 100vh;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            margin: 0;
+        }
+
+        .login-container {
+            background: #1e293b;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            width: 300px;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 2rem;
+            font-size: 1.5rem;
+        }
+
+        button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 4px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #2563eb;
+        }
+
+        .error {
+            color: #ef4444;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-container">
+        <h1>AI Sandbox Login</h1>
+        <button id="login-github">Sign in with GitHub</button>
+        <button id="login-google" style="margin-top: 10px; background-color: #ea4335;">Sign in with Google</button>
+        <div id="error-msg" class="error"></div>
+    </div>
+
+    <script type="module">
+        document.addEventListener('DOMContentLoaded', async () => {
+            const { url, key } = window.SUPABASE_CONFIG || {};
+            if (!url || !key) {
+                console.error("Supabase config missing");
+                document.getElementById('error-msg').innerText = "Configuration Error: Supabase keys missing.";
+                document.getElementById('error-msg').style.display = 'block';
+                return;
+            }
+
+            const supabase = window.supabase.createClient(url, key);
+
+            document.getElementById('login-github').addEventListener('click', async () => {
+                const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: 'github',
+                    options: {
+                        redirectTo: window.location.origin
+                    }
+                });
+                if (error) {
+                    document.getElementById('error-msg').innerText = error.message;
+                    document.getElementById('error-msg').style.display = 'block';
+                }
+            });
+
+            document.getElementById('login-google').addEventListener('click', async () => {
+                const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: window.location.origin
+                    }
+                });
+                if (error) {
+                    document.getElementById('error-msg').innerText = error.message;
+                    document.getElementById('error-msg').style.display = 'block';
+                }
+            });
+
+            // Check if already logged in
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                window.location.href = '/';
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -82,70 +82,60 @@ async def websocket_terminal(websocket: WebSocket):
         
         loop = asyncio.get_running_loop()
         
+        loop = asyncio.get_running_loop()
+        
+        # Queue for data to send to WebSocket
+        output_queue = asyncio.Queue()
+        
+        def pty_reader():
+            try:
+                data = os.read(master_fd, 10240)
+                if data:
+                    output_queue.put_nowait(data)
+                else:
+                    # EOF
+                    output_queue.put_nowait(None)
+            except OSError:
+                output_queue.put_nowait(None)
+
+        loop.add_reader(master_fd, pty_reader)
+        
+        async def send_to_ws():
+            try:
+                while True:
+                    data = await output_queue.get()
+                    if data is None:
+                        break
+                    await websocket.send_text(data.decode(errors='replace'))
+            except Exception as e:
+                logger.error(f"WS Send Error: {e}") 
+
+        send_task = asyncio.create_task(send_to_ws())
+
         try:
             while True:
-                # Use select to wait for input/output availability
-                # We need to act as a bridge between the WebSocket and the PTY
+                data = await websocket.receive_text()
                 
-                # Check for output from PTY to send to WebSocket
-                # Doing this async is tricky with blocking read on FD.
-                # We'll use loop.run_in_executor for reading from PTY to avoid blocking the event loop
-                
-                # However, a simpler approach for a demo/sandbox is to use a separate task or Select
-                # interacting with async context.
-                
-                # Let's try a simpler select-based non-blocking read loop with sleep
-                # or use add_reader
-                
-                # Using asyncio.create_task for reading from WS
-                
-                async def read_from_ws():
+                if data.startswith('{"type":"resize"'):
+                    import json
                     try:
-                        while True:
-                            data = await websocket.receive_text()
-                            # Handle resize events or input
-                            if data.startswith('{"type":"resize"'):
-                                import json
-                                try:
-                                    msg = json.loads(data)
-                                    rows = msg.get('rows', 24)
-                                    cols = msg.get('cols', 80)
-                                    # Set window size
-                                    winsize = struct.pack("HHHH", rows, cols, 0, 0)
-                                    fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsize)
-                                except Exception as e:
-                                    logger.error(f"Error resizing: {e}")
-                            else:
-                                # Write to PTY
-                                os.write(master_fd, data.encode())
-                    except WebSocketDisconnect:
-                        logger.info("WebSocket disconnected")
+                        msg = json.loads(data)
+                        rows = msg.get('rows', 24)
+                        cols = msg.get('cols', 80)
+                        winsize = struct.pack("HHHH", rows, cols, 0, 0)
+                        fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsize)
                     except Exception as e:
-                        logger.error(f"WebSocket error: {e}")
-
-                read_task = asyncio.create_task(read_from_ws())
-                
-                try:
-                    while True:
-                        await asyncio.sleep(0.01)
-                        # Check if data is available to read from master_fd
-                        r, w, e = select.select([master_fd], [], [], 0)
-                        if master_fd in r:
-                            output = os.read(master_fd, 10240)
-                            if not output:
-                                break
-                            await websocket.send_text(output.decode(errors='replace'))
-                        
-                        if read_task.done():
-                           break
-                except Exception as e:
-                    pass
-                finally:
-                    read_task.cancel()
-                    break
-
+                        logger.error(f"Error resizing: {e}")
+                else:
+                    os.write(master_fd, data.encode())
+                    
+        except WebSocketDisconnect:
+            logger.info("WebSocket disconnected")
         except Exception as e:
-            logger.error(f"Error in terminal loop: {e}")
+            logger.error(f"WebSocket Loop Error: {e}")
+        finally:
+            loop.remove_reader(master_fd)
+            send_task.cancel()
         finally:
             os.close(master_fd)
             # Kill the child process if it's still alive

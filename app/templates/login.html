@@ -26,13 +26,29 @@
             padding: 2rem;
             border-radius: 8px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            width: 300px;
+            width: 320px;
             text-align: center;
         }
 
         h1 {
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
             font-size: 1.5rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+            border: 1px solid #334155;
+            background-color: #0f172a;
+            color: white;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
         }
 
         button {
@@ -46,14 +62,47 @@
             font-size: 1rem;
             font-weight: 500;
             transition: background-color 0.2s;
+            margin-bottom: 0.5rem;
         }
 
         button:hover {
             background-color: #2563eb;
         }
 
+        button.secondary {
+            background-color: #334155;
+        }
+
+        button.secondary:hover {
+            background-color: #475569;
+        }
+
+        .divider {
+            margin: 1.5rem 0;
+            border-bottom: 1px solid #334155;
+            position: relative;
+        }
+
+        .divider span {
+            background: #1e293b;
+            padding: 0 10px;
+            color: #94a3b8;
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.875rem;
+        }
+
         .error {
             color: #ef4444;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            display: none;
+        }
+
+        .msg {
+            color: #22c55e;
             margin-top: 1rem;
             font-size: 0.875rem;
             display: none;
@@ -63,48 +112,96 @@
 
 <body>
     <div class="login-container">
-        <h1>AI Sandbox Login</h1>
-        <button id="login-github">Sign in with GitHub</button>
-        <button id="login-google" style="margin-top: 10px; background-color: #ea4335;">Sign in with Google</button>
+        <h1>Welcome</h1>
+
+        <input type="email" id="email" placeholder="Email address" required />
+        <input type="password" id="password" placeholder="Password" required />
+
+        <button id="login-email">Sign In</button>
+        <button id="signup-email" class="secondary">Create Account</button>
+
+        <div class="divider">
+            <span>Or continue with</span>
+        </div>
+
+        <button id="login-github" style="background-color: #24292e;">GitHub</button>
+        <button id="login-google" style="background-color: #ea4335;">Google</button>
+
         <div id="error-msg" class="error"></div>
+        <div id="success-msg" class="msg"></div>
     </div>
 
     <script type="module">
         document.addEventListener('DOMContentLoaded', async () => {
             const { url, key } = window.SUPABASE_CONFIG || {};
             if (!url || !key) {
-                console.error("Supabase config missing");
-                document.getElementById('error-msg').innerText = "Configuration Error: Supabase keys missing.";
-                document.getElementById('error-msg').style.display = 'block';
+                showError("Configuration Error: Supabase keys missing.");
                 return;
             }
 
             const supabase = window.supabase.createClient(url, key);
 
+            function showError(msg) {
+                const el = document.getElementById('error-msg');
+                el.innerText = msg;
+                el.style.display = 'block';
+                document.getElementById('success-msg').style.display = 'none';
+            }
+
+            function showSuccess(msg) {
+                const el = document.getElementById('success-msg');
+                el.innerText = msg;
+                el.style.display = 'block';
+                document.getElementById('error-msg').style.display = 'none';
+            }
+
+            // Email Login
+            document.getElementById('login-email').addEventListener('click', async () => {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                if (!email || !password) return showError("Please enter email and password");
+
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email, password
+                });
+
+                if (error) showError(error.message);
+                else window.location.href = '/';
+            });
+
+            // Email Signup
+            document.getElementById('signup-email').addEventListener('click', async () => {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                if (!email || !password) return showError("Please enter email and password");
+
+                const { data, error } = await supabase.auth.signUp({
+                    email, password
+                });
+
+                if (error) showError(error.message);
+                else {
+                    showSuccess("Account created! Verify your email or sign in if disabled.");
+                    // Check if auto-login happened (if email confirm is off)
+                    if (data.session) window.location.href = '/';
+                }
+            });
+
+            // Social Login
             document.getElementById('login-github').addEventListener('click', async () => {
                 const { data, error } = await supabase.auth.signInWithOAuth({
                     provider: 'github',
-                    options: {
-                        redirectTo: window.location.origin
-                    }
+                    options: { redirectTo: window.location.origin }
                 });
-                if (error) {
-                    document.getElementById('error-msg').innerText = error.message;
-                    document.getElementById('error-msg').style.display = 'block';
-                }
+                if (error) showError(error.message);
             });
 
             document.getElementById('login-google').addEventListener('click', async () => {
                 const { data, error } = await supabase.auth.signInWithOAuth({
                     provider: 'google',
-                    options: {
-                        redirectTo: window.location.origin
-                    }
+                    options: { redirectTo: window.location.origin }
                 });
-                if (error) {
-                    document.getElementById('error-msg').innerText = error.message;
-                    document.getElementById('error-msg').style.display = 'block';
-                }
+                if (error) showError(error.message);
             });
 
             // Check if already logged in

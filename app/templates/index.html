@@ -8,6 +8,10 @@
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Inject config from server
+        window.SUPABASE_CONFIG = {{ supabase_config | tojson }};
+    </script>
     <style>
         body {
             margin: 0;
@@ -26,6 +30,8 @@
 
 <body>
     <div id="terminal"></div>
+    <button id="logout-btn"
+        style="position: absolute; top: 10px; right: 10px; z-index: 10; padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; opacity: 0.5;">Logout</button>
 
     <script>
         // Supabase Logic to protect the route

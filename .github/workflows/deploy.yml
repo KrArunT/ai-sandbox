@@ -18,4 +18,4 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git push https://krarunt:$HF_TOKEN@huggingface.co/spaces/KrArunT/ai-sandbox main
+          git push https://arunkr:$HF_TOKEN@huggingface.co/spaces/ArunKr/ai-sandbox main

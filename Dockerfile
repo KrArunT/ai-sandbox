@@ -1,7 +1,7 @@
 FROM python:3.10-slim
 
 # Create a non-root user
-RUN useradd -m -u 1000 user
+RUN useradd -m -u 1000 -s /bin/bash user
 
 # Install system dependencies (curl, git for nvm/app)
 RUN apt-get update && apt-get install -y curl git \

@@ -59,6 +59,10 @@ async def websocket_terminal(websocket: WebSocket):
     
     # Start the shell (bash)
     shell = os.environ.get("SHELL", "/bin/bash")
+    
+    # Ensure TERM is set
+    os.environ["TERM"] = "xterm-256color"
+    
     pid = os.fork()
     
     if pid == 0:

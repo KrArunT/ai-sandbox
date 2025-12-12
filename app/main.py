@@ -136,7 +136,6 @@ async def websocket_terminal(websocket: WebSocket):
         finally:
             loop.remove_reader(master_fd)
             send_task.cancel()
-        finally:
             os.close(master_fd)
             # Kill the child process if it's still alive
             try:
